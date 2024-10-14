@@ -1,0 +1,21 @@
+services:
+  server:
+    image: server
+    container_name: server
+    network_mode: "host"
+    restart: "on-failure"
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    ports:
+      - "9999:9999" 
+  server-to0:
+    image: server-to0
+    container_name: server-to0
+    network_mode: "host"
+    restart: "on-failure"
+    build:
+      context: .
+      dockerfile: Dockerfile.serverTO0
+    ports:
+      - "9997:9997"
