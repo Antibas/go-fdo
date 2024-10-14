@@ -1,7 +1,7 @@
 from fastapi import FastAPI, APIRouter, Response
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
-import subprocess, os, aiomysql
+import subprocess, os
 
 app = FastAPI()
 
@@ -31,33 +31,42 @@ def _run_command(command: str, cwd: str=None):
     out = subprocess.run(command, cwd=cwd, shell=True, capture_output=True, text=True)
     if out.returncode:
         raise Exception(out.stderr)
-    return out.stderr if out.stderr else out.stdout
+    return (out.stderr if out.stderr else out.stdout)+'\n'
 
 @router.get("/start_client")
 async def start_client():
     try:
-        return Response(content=_run_command(f'./{PATH}start_client.bash'), status_code=200)
+        # return Response(content=_run_command(f'./{PATH}start_client.bash'), status_code=200)
+        _run_command(f'go run ./examples/cmd client -di http://{os.getenv("SERVER_IP", "127.0.0.1")}:{os.getenv("SERVER_PORT", "9999")}')
+        out = _run_command('go run ./examples/cmd client')
+        return Response(content=out, status_code=200)
     except Exception as e:
         return Response(content=e.__str__(), status_code=500)
 
 @router.get("/get_GUID")
 async def get_GUID():
     try:
-        return Response(content=_run_command(f'./{PATH}get_guid.bash'), status_code=200)
+        _run_command(f'go run ./examples/cmd client -di http://{os.getenv("SERVER_IP", "127.0.0.1")}:{os.getenv("SERVER_PORT", "9999")}')
+        return Response(content=_run_command("go run ./examples/cmd client -print | grep GUID | awk '{print $2}'"), status_code=200)
     except Exception as e:
         return Response(content=e.__str__(), status_code=500)
     
 @router.get("/register_GUID/{GUID}")
 async def register_GUID(GUID: str):
     try:
-        return Response(content=_run_command(f'./{PATH}register_rv.bash {GUID}'), status_code=200)
+        _run_command(f'go run ./examples/cmd server -http {os.getenv("SERVER_IP", "127.0.0.1")}:{os.getenv("SERVER_TO0_PORT", "9997")} -to0 http://{os.getenv("SERVER_IP", "127.0.0.1")}:{os.getenv("SERVER_PORT", "9999")} -to0-guid {GUID} -db ./test.db')
+        return Response(content=_run_command('go run ./examples/cmd client -rv-only'), status_code=200)
+        # return Response(content=_run_command(f'./{PATH}register_rv.bash {GUID}'), status_code=200)
     except Exception as e:
         return Response(content=e.__str__(), status_code=500)
 
 @router.get("/exchange_keys")
 async def exchange_keys():
     try:
-        return Response(content=_run_command(f'./{PATH}key_exchange.bash'), status_code=200)
+        _run_command(f'go run ./examples/cmd client -di http://{os.getenv("SERVER_IP", "127.0.0.1")}:{os.getenv("SERVER_PORT", "9999")} -di-key rsa2048')
+        
+        return Response(content=_run_command('go run ./examples/cmd client -kex ASYMKEX2048'), status_code=200)
+        # return Response(content=_run_command(f'./{PATH}key_exchange.bash'), status_code=200)
     except Exception as e:
         return Response(content=e.__str__(), status_code=500)
     
@@ -97,4 +106,4 @@ async def generate_public_key():
 app.include_router(router)
 
 if __name__ == "__main__":
-    uvicorn.run("api:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("api:app", host=os.getenv("API_IP", "0.0.0.0"), port=os.getenv("API_PORT", 8000), reload=True)

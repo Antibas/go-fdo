@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/bin/sh
+# export ENV=~.env
 
 usage(){
     echo "Starts the servers"

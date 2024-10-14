@@ -2,10 +2,9 @@
 
 usage(){
     echo "Starts the server with TO1 IP and optionally gets a GUID"
-    echo "Usage: ./start_server.bash [-r] [-c] [-g GUID]"
+    echo "Usage: ./start_server.bash [-r] [-c]"
     echo "-r: Restart"
     echo "-c: Clean up docker system"
-    echo "-g GUID: The GUID from the client"
     exit 1
 }
 
@@ -19,11 +18,6 @@ while getopts ":hrcg:" opt; do
             ;;
         c)
             sudo docker system prune -f
-            ;;
-        g)
-            # echo "GUID=${OPTARG}" > guid.env
-            # sudo docker-compose -f server-to0-guid-docker-compose.yaml  --env-file guid.env up --build -d
-            exit 0;
             ;;
         ?)
             echo "Invalid option: -${OPTARG}."

@@ -26,5 +26,5 @@ go.work.sum
 # VS Code
 .vscode/
 *.db 
-*.env
+.env
 __pycache__/
