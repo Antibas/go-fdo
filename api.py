@@ -6,9 +6,8 @@ import subprocess, os
 app = FastAPI()
 
 origins = [
-    "http://localhost:5173",  # Vue.js dev server
-    "http://127.0.0.1:5173",  # Alternate localhost form
-    # You can add more origins here as needed (e.g., production URLs)
+    "http://localhost:5174", 
+    "http://127.0.0.1:5174", 
 ]
 
 # Add CORS middleware to your FastAPI app
@@ -22,22 +21,19 @@ app.add_middleware(
 
 router = APIRouter()
 
-PATH = 'scripts/'
-# COMPONENTS = ["db", 'aio', 'rv', 'owner', 'manufacturer', 'device', 'reseller']
-
-# outlog = lambda out: (out.stderr if out.stderr else out.stdout) + "\n"
+PATH = '/media/panagiotis-antivasis/Data7/FIDO/go-fdo/'
 
 def _run_command(command: str, cwd: str=None):
     out = subprocess.run(command, cwd=cwd, shell=True, capture_output=True, text=True)
     if out.returncode:
         raise Exception(out.stderr)
-    return (out.stderr if out.stderr else out.stdout)+'\n'
+    return (out.stderr if out.stderr else out.stdout)
 
 @router.get("/start_client")
-async def start_client():
+async def start_client(init: bool=True):
     try:
-        # return Response(content=_run_command(f'./{PATH}start_client.bash'), status_code=200)
-        _run_command(f'go run ./examples/cmd client -di http://{os.getenv("SERVER_IP", "127.0.0.1")}:{os.getenv("SERVER_PORT", "9999")}')
+        if init:
+            _run_command(f'go run ./examples/cmd client -di http://{os.getenv("SERVER_IP", "127.0.0.1")}:{os.getenv("SERVER_PORT", "9999")}')
         out = _run_command('go run ./examples/cmd client')
         return Response(content=out, status_code=200)
     except Exception as e:
@@ -46,7 +42,7 @@ async def start_client():
 @router.get("/get_GUID")
 async def get_GUID():
     try:
-        _run_command(f'go run ./examples/cmd client -di http://{os.getenv("SERVER_IP", "127.0.0.1")}:{os.getenv("SERVER_PORT", "9999")}')
+        _run_command(f'go run ./examples/cmd client -di http://{os.getenv("SERVER_IP", "127.0.0.1")}:{os.getenv("SERVER_TO0_PORT", "9997")}')
         return Response(content=_run_command("go run ./examples/cmd client -print | grep GUID | awk '{print $2}'"), status_code=200)
     except Exception as e:
         return Response(content=e.__str__(), status_code=500)
@@ -54,9 +50,8 @@ async def get_GUID():
 @router.get("/register_GUID/{GUID}")
 async def register_GUID(GUID: str):
     try:
-        _run_command(f'go run ./examples/cmd server -http {os.getenv("SERVER_IP", "127.0.0.1")}:{os.getenv("SERVER_TO0_PORT", "9997")} -to0 http://{os.getenv("SERVER_IP", "127.0.0.1")}:{os.getenv("SERVER_PORT", "9999")} -to0-guid {GUID} -db ./test.db')
+        _run_command(f'go run ./examples/cmd server -http {os.getenv("SERVER_IP", "127.0.0.1")}:{os.getenv("SERVER_TO0_PORT", "9997")} -to0 http://{os.getenv("SERVER_IP", "127.0.0.1")}:{os.getenv("SERVER_TO0_PORT", "9997")} -to0-guid {GUID} -db ./test.db')
         return Response(content=_run_command('go run ./examples/cmd client -rv-only'), status_code=200)
-        # return Response(content=_run_command(f'./{PATH}register_rv.bash {GUID}'), status_code=200)
     except Exception as e:
         return Response(content=e.__str__(), status_code=500)
 
@@ -66,14 +61,27 @@ async def exchange_keys():
         _run_command(f'go run ./examples/cmd client -di http://{os.getenv("SERVER_IP", "127.0.0.1")}:{os.getenv("SERVER_PORT", "9999")} -di-key rsa2048')
         
         return Response(content=_run_command('go run ./examples/cmd client -kex ASYMKEX2048'), status_code=200)
-        # return Response(content=_run_command(f'./{PATH}key_exchange.bash'), status_code=200)
     except Exception as e:
         return Response(content=e.__str__(), status_code=500)
     
 @router.get("/voucher/{GUID}")
 async def get_voucher(GUID: str):
     try:
-        return Response(content=_run_command(f'go run ./examples/cmd server -resale-guid {GUID} -resale-key key.pem -db ./test.db'), status_code=200)
+        # return Response(content=_run_command(f'go run ./examples/cmd server -resale-guid {GUID} -resale-key key.pem -db ./test.db'), status_code=200)
+        out = _run_command(f'go run ./examples/cmd server -resale-guid {GUID} -resale-key key.pem -db ./test.db')
+        with open("voucher.pem", 'w+') as k:
+            from starlette.responses import FileResponse
+            k.write(out)
+            # return Response(content=pem_public_key, status_code=200)
+            return FileResponse(f"{PATH}{k.name}", media_type='application/octet-stream',filename=k.name)
+    except Exception as e:
+        return Response(content=e.__str__(), status_code=500)
+
+@router.get("/tpm")
+async def test_with_TPM():
+    try:
+        _run_command(f'go run -tags tpmsim ./examples/cmd client -di http://{os.getenv("SERVER_IP", "127.0.0.1")}:{os.getenv("SERVER_PORT", "9999")} -di-key rsa2048 -tpm simulator')
+        return Response(content=_run_command("go run -tags tpmsim ./examples/cmd client -di-key rsa2048 -tpm simulator"), status_code=200)
     except Exception as e:
         return Response(content=e.__str__(), status_code=500)
 
@@ -85,7 +93,7 @@ async def generate_public_key():
     try:
         private_key = rsa.generate_private_key(
             public_exponent=65537,
-            key_size=2048,  # You can choose 2048, 3072, or 4096 bits
+            key_size=2048, 
             backend=default_backend()
         )
 
@@ -99,8 +107,15 @@ async def generate_public_key():
         )
 
         with open("key.pem", 'wb+') as k:
+            from starlette.responses import FileResponse
             k.write(pem_public_key)
-            return Response(content=pem_public_key, status_code=200)
+            # return Response(content=pem_public_key, status_code=200)
+            return FileResponse(f"{PATH}{k.name}", media_type='application/octet-stream',filename=k.name)
+            # return Response(
+            #     content=k.read(),
+            #     media_type=k.content_type,
+            #     headers={"Content-Disposition": f"attachment; filename='key.pem'"}
+            # )
     except Exception as e:
         return Response(content=e.__str__(), status_code=500)
 app.include_router(router)

@@ -26,4 +26,4 @@ while getopts ":hrcg:" opt; do
     esac
 done
 # sudo docker-compose -f server-to0-docker-compose.yaml up --build -d
-go run ./examples/cmd server -http 127.0.0.1:9997 -to0 http://127.0.0.1:9999 -db ./test.db
+go run ./examples/cmd server -http 127.0.0.1:9997 -to0 http://127.0.0.1:9997 -db ./test.db
